@@ -1,20 +1,197 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from "recharts";
 
 const Chart = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("This Week");
+  const [currentViewDate, setCurrentViewDate] = useState(new Date());
 
-  // Sample data points for the chart
-  const dataPoints = [
-    { x: 10, y: 80, value: "562K" },
-    { x: 20, y: 60, value: "345K" },
-    { x: 30, y: 45, value: "234K" },
-    { x: 40, y: 30, value: "456K" },
-    { x: 50, y: 40, value: "478K" },
-    { x: 60, y: 25, value: "567K" },
-  ];
+  // Helper function to get date ranges and data based on period
+  const getDateRangeAndData = useMemo(() => {
+    const today = new Date();
+    const viewDate = new Date(currentViewDate);
 
-  const periods = ["Today", "This Week", "This Month", "This Year"];
+    const generateMockData = (count) => {
+      return Array.from({ length: count }, (_, i) => ({
+        value: Math.floor(Math.random() * 400 + 200),
+      }));
+    };
+
+    switch (selectedPeriod) {
+      case "Today": {
+        const hours = Array.from({ length: 24 }, (_, i) => {
+          const hour = new Date(viewDate);
+          hour.setHours(i, 0, 0, 0);
+          return hour;
+        });
+        return {
+          dates: hours,
+          data: generateMockData(24),
+          formatLabel: (date) => date.getHours() + ":00",
+          isToday: viewDate.toDateString() === today.toDateString(),
+        };
+      }
+
+      case "This Week": {
+        const startOfWeek = new Date(viewDate);
+        const day = startOfWeek.getDay();
+        startOfWeek.setDate(startOfWeek.getDate() - day);
+
+        const weekDays = Array.from({ length: 7 }, (_, i) => {
+          const date = new Date(startOfWeek);
+          date.setDate(startOfWeek.getDate() + i);
+          return date;
+        });
+
+        const currentWeekStart = new Date(today);
+        currentWeekStart.setDate(today.getDate() - today.getDay());
+
+        return {
+          dates: weekDays,
+          data: generateMockData(7),
+          formatLabel: (date) => {
+            const monthDay = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+            const dayName = date.toLocaleDateString("en-US", {
+              weekday: "short",
+            });
+            return `${monthDay} (${dayName})`;
+          },
+          isToday:
+            startOfWeek.toDateString() === currentWeekStart.toDateString(),
+        };
+      }
+
+      case "This Month": {
+        const startOfMonth = new Date(
+          viewDate.getFullYear(),
+          viewDate.getMonth(),
+          1
+        );
+        const daysInMonth = new Date(
+          viewDate.getFullYear(),
+          viewDate.getMonth() + 1,
+          0
+        ).getDate();
+
+        const monthDays = Array.from({ length: daysInMonth }, (_, i) => {
+          const date = new Date(startOfMonth);
+          date.setDate(i + 1);
+          return date;
+        });
+
+        return {
+          dates: monthDays,
+          data: generateMockData(daysInMonth),
+          formatLabel: (date) => {
+            const monthDay = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+            const dayName = date.toLocaleDateString("en-US", {
+              weekday: "short",
+            });
+            return `${monthDay} (${dayName})`;
+          },
+          isToday:
+            viewDate.getMonth() === today.getMonth() &&
+            viewDate.getFullYear() === today.getFullYear(),
+        };
+      }
+
+      case "This Year": {
+        const months = Array.from({ length: 12 }, (_, i) => {
+          const date = new Date(viewDate.getFullYear(), i, 1);
+          return date;
+        });
+
+        return {
+          dates: months,
+          data: generateMockData(12),
+          formatLabel: (date) =>
+            date.toLocaleDateString("en-US", {
+              month: "short",
+              year: "2-digit",
+            }),
+          isToday: viewDate.getFullYear() === today.getFullYear(),
+        };
+      }
+
+      default:
+        return { dates: [], data: [], formatLabel: () => "", isToday: false };
+    }
+  }, [selectedPeriod, currentViewDate]);
+
+  const { dates, data, formatLabel, isToday } = getDateRangeAndData;
+
+  // Prepare data for Recharts
+  const chartData = useMemo(() => {
+    return dates.map((date, index) => ({
+      name: formatLabel(date),
+      value: data[index]?.value || 0,
+      fullDate: date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+    }));
+  }, [dates, data, formatLabel]);
+
+  const navigateTime = (direction) => {
+    const newDate = new Date(currentViewDate);
+
+    switch (selectedPeriod) {
+      case "Today":
+        newDate.setDate(newDate.getDate() + direction);
+        break;
+      case "This Week":
+        newDate.setDate(newDate.getDate() + direction * 7);
+        break;
+      case "This Month":
+        newDate.setMonth(newDate.getMonth() + direction);
+        break;
+      case "This Year":
+        newDate.setFullYear(newDate.getFullYear() + direction);
+        break;
+    }
+
+    setCurrentViewDate(newDate);
+  };
+
+  const goToToday = () => {
+    setCurrentViewDate(new Date());
+  };
+
+  // Custom tooltip component
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+          <p className="text-sm text-gray-600 mb-1">
+            {payload[0].payload.fullDate}
+          </p>
+          <p className="text-lg font-semibold text-blue-600">
+            ${payload[0].value}K
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const periods = ["This Week", "This Month", "This Year"];
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -22,91 +199,132 @@ const Chart = () => {
         <h3 className="text-lg font-semibold text-gray-900">
           Revenue Overview
         </h3>
-        <div className="flex space-x-2">
-          {periods.map((period) => (
+
+        <div className="flex items-center space-x-4">
+          {/* Today Button */}
+          <button
+            onClick={goToToday}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              isToday
+                ? "bg-green-100 text-green-700 border border-green-300"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Today
+          </button>
+
+          {/* Period Buttons */}
+          <div className="flex space-x-2">
+            {periods.map((period) => (
+              <button
+                key={period}
+                onClick={() => setSelectedPeriod(period)}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  selectedPeriod === period
+                    ? "bg-blue-100 text-blue-700"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {period}
+              </button>
+            ))}
+          </div>
+
+          {/* Navigation Arrows */}
+          <div className="flex items-center space-x-1">
             <button
-              key={period}
-              onClick={() => setSelectedPeriod(period)}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                selectedPeriod === period
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              onClick={() => navigateTime(-1)}
+              className="p-1 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             >
-              {period}
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
             </button>
-          ))}
+            <button
+              onClick={() => navigateTime(1)}
+              className="p-1 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Chart Area */}
-      <div className="relative h-64 bg-gradient-to-br from-blue-50 to-pink-50 rounded-lg overflow-hidden">
-        {/* Grid Lines */}
-        <svg className="absolute inset-0 w-full h-full">
-          <defs>
-            <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#3B82F6" />
-              <stop offset="50%" stopColor="#8B5CF6" />
-              <stop offset="100%" stopColor="#EC4899" />
-            </linearGradient>
-          </defs>
-
-          {/* Background Area */}
-          <path
-            d={`M 0 ${240} L ${dataPoints
-              .map((point, index) => `${index * 60 + 40} ${240 - point.y * 2}`)
-              .join(" L ")} L ${dataPoints.length * 60} ${240} Z`}
-            fill="url(#gradient1)"
-            fillOpacity="0.3"
-          />
-
-          {/* Main Line */}
-          <polyline
-            points={dataPoints
-              .map((point, index) => `${index * 60 + 40},${240 - point.y * 2}`)
-              .join(" ")}
-            fill="none"
-            stroke="url(#gradient1)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* Data Points */}
-          {dataPoints.map((point, index) => (
-            <g key={index}>
-              <circle
-                cx={index * 60 + 40}
-                cy={240 - point.y * 2}
-                r="6"
-                fill="white"
-                stroke="url(#gradient1)"
-                strokeWidth="3"
-              />
-
-              {/* Value Labels */}
-              <text
-                x={index * 60 + 40}
-                y={240 - point.y * 2 - 15}
-                textAnchor="middle"
-                className="text-xs font-medium fill-gray-700"
+      {/* Chart Area with Recharts */}
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={chartData}
+            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+          >
+            <defs>
+              <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#EC4899" stopOpacity={0.1} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis
+              dataKey="name"
+              stroke="#64748b"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              stroke="#64748b"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => `$${value}K`}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke="url(#lineGradient)"
+              strokeWidth={3}
+              fill="url(#colorGradient)"
+              dot={{ fill: "#fff", strokeWidth: 3, r: 6 }}
+              activeDot={{ r: 8, strokeWidth: 0 }}
+            />
+            <defs>
+              <linearGradient
+                id="lineGradient"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
               >
-                {point.value}
-              </text>
-            </g>
-          ))}
-        </svg>
-
-        {/* Time Labels */}
-        <div className="absolute bottom-2 left-0 right-0 flex justify-between px-10 text-xs text-gray-500">
-          <span>Jan 15</span>
-          <span>Jan 16</span>
-          <span>Jan 17</span>
-          <span>Jan 18</span>
-          <span>Jan 19</span>
-          <span>Jan 20</span>
-          <span>Jan 21</span>
-        </div>
+                <stop offset="0%" stopColor="#3B82F6" />
+                <stop offset="50%" stopColor="#8B5CF6" />
+                <stop offset="100%" stopColor="#EC4899" />
+              </linearGradient>
+            </defs>
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
