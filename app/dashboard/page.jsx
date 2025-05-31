@@ -9,6 +9,20 @@ import DataTable from "../../components/dashboard/DataTable";
 import ActivityFeed from "../../components/dashboard/ActivityFeed";
 import BarChart from "../../components/dashboard/BarChart";
 
+const getTimeBasedGreeting = () => {
+  const hour = new Date().getHours();
+
+  if (hour >= 5 && hour < 12) {
+    return "Good morning";
+  } else if (hour >= 12 && hour < 17) {
+    return "Good afternoon";
+  } else if (hour >= 17 && hour < 22) {
+    return "Good evening";
+  } else {
+    return "Good night";
+  }
+};
+
 const DashboardPage = () => {
   const { user, userData, loading } = useAuth();
 
@@ -53,7 +67,8 @@ const DashboardPage = () => {
           {/* Welcome Message */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900">
-              Welcome, {userData?.fullName || user.displayName || user.email}!
+              {getTimeBasedGreeting()},{" "}
+              {userData?.fullName || user.displayName || user.email}!
             </h1>
             <p className="text-gray-600">Here's your dashboard overview</p>
           </div>

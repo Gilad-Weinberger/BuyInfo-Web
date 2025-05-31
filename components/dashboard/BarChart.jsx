@@ -167,7 +167,7 @@ const BarChart = () => {
             {payload[0].payload.fullDate}
           </p>
           <p className="text-lg font-semibold text-blue-600">
-            {payload[0].value} Sales
+            {payload[0].value} Expenses
           </p>
         </div>
       );
@@ -180,7 +180,7 @@ const BarChart = () => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-900">Sales Analytics</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Expenses Analytics</h3>
 
         <div className="flex items-center space-x-4">
           {/* Today Button */}
