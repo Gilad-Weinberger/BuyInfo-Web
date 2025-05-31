@@ -60,14 +60,10 @@ const Chart = () => {
           dates: weekDays,
           data: generateMockData(7),
           formatLabel: (date) => {
-            const monthDay = date.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            });
             const dayName = date.toLocaleDateString("en-US", {
               weekday: "short",
             });
-            return `${monthDay} (${dayName})`;
+            return dayName;
           },
           isToday:
             startOfWeek.toDateString() === currentWeekStart.toDateString(),
@@ -96,14 +92,7 @@ const Chart = () => {
           dates: monthDays,
           data: generateMockData(daysInMonth),
           formatLabel: (date) => {
-            const monthDay = date.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            });
-            const dayName = date.toLocaleDateString("en-US", {
-              weekday: "short",
-            });
-            return `${monthDay} (${dayName})`;
+            return date.getDate().toString();
           },
           isToday:
             viewDate.getMonth() === today.getMonth() &&
@@ -121,10 +110,7 @@ const Chart = () => {
           dates: months,
           data: generateMockData(12),
           formatLabel: (date) =>
-            date.toLocaleDateString("en-US", {
-              month: "short",
-              year: "2-digit",
-            }),
+            date.toLocaleDateString("en-US", { month: "short" }),
           isToday: viewDate.getFullYear() === today.getFullYear(),
         };
       }
