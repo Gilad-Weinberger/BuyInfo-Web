@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   BarChart as RechartsBarChart,
   Bar,
@@ -9,129 +9,22 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useExpensesData } from "../../lib/useExpensesData";
 
 const BarChart = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("This Month");
   const [currentViewDate, setCurrentViewDate] = useState(new Date());
 
-  // Helper function to get date ranges and data based on period
-  const getDateRangeAndData = useMemo(() => {
-    const today = new Date();
-    const viewDate = new Date(currentViewDate);
-
-    const generateMockData = (count) => {
-      return Array.from({ length: count }, (_, i) => ({
-        value: Math.floor(Math.random() * 100 + 30),
-      }));
-    };
-
-    switch (selectedPeriod) {
-      case "Today": {
-        const hours = Array.from({ length: 24 }, (_, i) => {
-          const hour = new Date(viewDate);
-          hour.setHours(i, 0, 0, 0);
-          return hour;
-        });
-        return {
-          dates: hours,
-          data: generateMockData(24),
-          formatLabel: (date) => date.getHours() + ":00",
-          isToday: viewDate.toDateString() === today.toDateString(),
-        };
-      }
-
-      case "This Week": {
-        const startOfWeek = new Date(viewDate);
-        const day = startOfWeek.getDay();
-        startOfWeek.setDate(startOfWeek.getDate() - day);
-
-        const weekDays = Array.from({ length: 7 }, (_, i) => {
-          const date = new Date(startOfWeek);
-          date.setDate(startOfWeek.getDate() + i);
-          return date;
-        });
-
-        const currentWeekStart = new Date(today);
-        currentWeekStart.setDate(today.getDate() - today.getDay());
-
-        return {
-          dates: weekDays,
-          data: generateMockData(7),
-          formatLabel: (date) => {
-            const dayName = date.toLocaleDateString("en-US", {
-              weekday: "short",
-            });
-            return dayName;
-          },
-          isToday:
-            startOfWeek.toDateString() === currentWeekStart.toDateString(),
-        };
-      }
-
-      case "This Month": {
-        const startOfMonth = new Date(
-          viewDate.getFullYear(),
-          viewDate.getMonth(),
-          1
-        );
-        const daysInMonth = new Date(
-          viewDate.getFullYear(),
-          viewDate.getMonth() + 1,
-          0
-        ).getDate();
-
-        const monthDays = Array.from({ length: daysInMonth }, (_, i) => {
-          const date = new Date(startOfMonth);
-          date.setDate(i + 1);
-          return date;
-        });
-
-        return {
-          dates: monthDays,
-          data: generateMockData(daysInMonth),
-          formatLabel: (date) => {
-            return date.getDate().toString();
-          },
-          isToday:
-            viewDate.getMonth() === today.getMonth() &&
-            viewDate.getFullYear() === today.getFullYear(),
-        };
-      }
-
-      case "This Year": {
-        const months = Array.from({ length: 12 }, (_, i) => {
-          const date = new Date(viewDate.getFullYear(), i, 1);
-          return date;
-        });
-
-        return {
-          dates: months,
-          data: generateMockData(12),
-          formatLabel: (date) =>
-            date.toLocaleDateString("en-US", { month: "short" }),
-          isToday: viewDate.getFullYear() === today.getFullYear(),
-        };
-      }
-
-      default:
-        return { dates: [], data: [], formatLabel: () => "", isToday: false };
-    }
-  }, [selectedPeriod, currentViewDate]);
-
-  const { dates, data, formatLabel, isToday } = getDateRangeAndData;
-
-  // Prepare data for Recharts
-  const chartData = useMemo(() => {
-    return dates.map((date, index) => ({
-      name: formatLabel(date),
-      value: data[index]?.value || 0,
-      fullDate: date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-    }));
-  }, [dates, data, formatLabel]);
+  // Use real expenses data
+  const {
+    chartData,
+    totalAmount,
+    count,
+    loading,
+    error,
+    isToday,
+    periodLabel,
+  } = useExpensesData(selectedPeriod, currentViewDate);
 
   const navigateTime = (direction) => {
     const newDate = new Date(currentViewDate);
@@ -167,7 +60,10 @@ const BarChart = () => {
             {payload[0].payload.fullDate}
           </p>
           <p className="text-lg font-semibold text-blue-600">
-            {payload[0].value} Expenses
+            {payload[0].value} {payload[0].value === 1 ? "expense" : "expenses"}
+          </p>
+          <p className="text-sm text-gray-500">
+            Total: ${payload[0].payload.value.toFixed(2)}
           </p>
         </div>
       );
@@ -177,10 +73,60 @@ const BarChart = () => {
 
   const periods = ["This Week", "This Month", "This Year"];
 
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading expenses data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-red-500 mb-2">
+              <svg
+                className="w-12 h-12 mx-auto"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
+              </svg>
+            </div>
+            <p className="text-gray-600 mb-2">Failed to load expenses data</p>
+            <p className="text-sm text-gray-500">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-900">Expenses Analytics</h3>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Expenses Count Analytics
+          </h3>
+          <div className="flex items-center space-x-4 mt-1">
+            <p className="text-sm text-gray-600">
+              <span className="font-medium text-gray-800">{periodLabel}</span>
+            </p>
+          </div>
+        </div>
 
         <div className="flex items-center space-x-4">
           {/* Today Button */}
@@ -254,44 +200,61 @@ const BarChart = () => {
         </div>
       </div>
 
-      {/* Bar Chart Area with Recharts */}
+      {/* Chart */}
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <RechartsBarChart
-            data={chartData}
-            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-          >
-            <defs>
-              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.9} />
-                <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.7} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <RechartsBarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
             <XAxis
               dataKey="name"
-              stroke="#64748b"
-              fontSize={12}
-              tickLine={false}
               axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 12, fill: "#6B7280" }}
             />
             <YAxis
-              stroke="#64748b"
-              fontSize={12}
-              tickLine={false}
               axisLine={false}
-              tickFormatter={(value) => `${value}`}
+              tickLine={false}
+              tick={{ fontSize: 12, fill: "#6B7280" }}
+              tickFormatter={(value) => `${Math.floor(value)}`}
+              allowDecimals={false}
             />
             <Tooltip content={<CustomTooltip />} />
             <Bar
-              dataKey="value"
-              fill="url(#barGradient)"
+              dataKey="count"
+              fill="#3B82F6"
               radius={[4, 4, 0, 0]}
-              strokeWidth={0}
+              className="hover:opacity-80 transition-opacity duration-200"
             />
           </RechartsBarChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Empty state */}
+      {chartData.length === 0 && !loading && (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-gray-400 mb-2">
+              <svg
+                className="w-12 h-12 mx-auto"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+            </div>
+            <p className="text-gray-600 mb-1">No expenses data</p>
+            <p className="text-sm text-gray-500">
+              Add some expenses to see the chart
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
